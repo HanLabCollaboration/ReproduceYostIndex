@@ -28,7 +28,7 @@ Higher Yost scores indicate higher neighborhood SES.
 ## Features
 
 - **Automatic data fetching**: wraps `tidycensus` to pull all required ACS variables
-- **Flexible geographies**: county, tract, or block group
+- **Flexible geographies**: state, county, tract, or block group
 - **Flexible scopes**: rank geographies nationally, within state, or within county
 - **Shrinkage stabilization**: Empirical Bayes-style smoothing for unreliable small-area estimates (recommended for block groups and tracts)
 - **Spatial imputation**: neighbor-based imputation for missing values
