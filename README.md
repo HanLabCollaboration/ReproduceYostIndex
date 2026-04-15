@@ -33,10 +33,8 @@ Higher Yost scores indicate higher neighborhood SES.
 |---|---|---|
 | **Census API key** | Not required | Required |
 | **Speed** | Instant (pre-computed) | Minutes to hours |
-| **Years available** | 2013–2023 | 2011–present |
 | **Geographies** | County, tract, block group | County, tract, block group, state |
 | **Scope** | National, state | National, state, county |
-| **Variants returned** | All four at once | One (your chosen parameters) |
 | **Best for** | Most analyses, quick exploration | Custom pipelines, newest ACS years |
 
 ---
