@@ -84,7 +84,7 @@ processYostScope <- function(
     yost_data_parent_clean <- cleanAcsNames(dframe = yost_data_parent, geo = geo_parent)
     yost_data_parent       <- calculateYostVars(data = yost_data_parent_clean, acs_vars = acs_vars, stabilize_sub = FALSE)
 
-    yost_data_stabilized_raw <- stabilizeYost(yost_data = yost_data_sub, yost_data_parent = yost_data_parent,
+    yost_data_stabilized_raw <- stabilizeYostIndex(yost_data = yost_data_sub, yost_data_parent = yost_data_parent,
                                        varlist = varlist, geo_parent_key_len = geo_parent_key_len)
 
     # Rename: original -> _raw, _moe -> _raw_moe, _stabilized -> original name

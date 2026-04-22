@@ -41,17 +41,17 @@ make_stabilize_data <- function() {
   list(parent = parent_data, child = child_data)
 }
 
-test_that("stabilizeYost returns a data frame with correct row count", {
+test_that("stabilizeYostIndex returns a data frame with correct row count", {
   d <- make_stabilize_data()
-  result <- ReproduceYostIndex:::stabilizeYost(d$child, d$parent, varlist, geo_parent_key_len = 5)
+  result <- ReproduceYostIndex:::stabilizeYostIndex(d$child, d$parent, varlist, geo_parent_key_len = 5)
 
   expect_s3_class(result, "data.frame")
   expect_equal(nrow(result), nrow(d$child))
 })
 
-test_that("stabilizeYost produces shrunk, weight, and flag columns for each variable", {
+test_that("stabilizeYostIndex produces shrunk, weight, and flag columns for each variable", {
   d <- make_stabilize_data()
-  result <- ReproduceYostIndex:::stabilizeYost(d$child, d$parent, varlist, geo_parent_key_len = 5)
+  result <- ReproduceYostIndex:::stabilizeYostIndex(d$child, d$parent, varlist, geo_parent_key_len = 5)
 
   expect_true(all(paste0(varlist, "_stabilized")    %in% colnames(result)))
   expect_true(all(paste0(varlist, "_wgt")       %in% colnames(result)))
@@ -59,18 +59,18 @@ test_that("stabilizeYost produces shrunk, weight, and flag columns for each vari
   expect_true(all(paste0("stabilizedflg_", varlist) %in% colnames(result)))
 })
 
-test_that("stabilizeYost flags are 0 or 1", {
+test_that("stabilizeYostIndex flags are 0 or 1", {
   d <- make_stabilize_data()
-  result <- ReproduceYostIndex:::stabilizeYost(d$child, d$parent, varlist, geo_parent_key_len = 5)
+  result <- ReproduceYostIndex:::stabilizeYostIndex(d$child, d$parent, varlist, geo_parent_key_len = 5)
 
   for (col in paste0("stabilizedflg_", varlist)) {
     expect_true(all(result[[col]] %in% c(0L, 1L)))
   }
 })
 
-test_that("stabilizeYost weights are between 0 and 1", {
+test_that("stabilizeYostIndex weights are between 0 and 1", {
   d <- make_stabilize_data()
-  result <- ReproduceYostIndex:::stabilizeYost(d$child, d$parent, varlist, geo_parent_key_len = 5)
+  result <- ReproduceYostIndex:::stabilizeYostIndex(d$child, d$parent, varlist, geo_parent_key_len = 5)
 
   for (col in paste0(varlist, "_wgt")) {
     valid <- result[[col]][!is.na(result[[col]])]
@@ -78,9 +78,9 @@ test_that("stabilizeYost weights are between 0 and 1", {
   }
 })
 
-test_that("stabilizeYost shrunk values lie between original and parent", {
+test_that("stabilizeYostIndex shrunk values lie between original and parent", {
   d <- make_stabilize_data()
-  result <- ReproduceYostIndex:::stabilizeYost(d$child, d$parent, varlist, geo_parent_key_len = 5)
+  result <- ReproduceYostIndex:::stabilizeYostIndex(d$child, d$parent, varlist, geo_parent_key_len = 5)
 
   for (var in varlist) {
     shrunk_rows <- result[result[[paste0("stabilizedflg_", var)]] == 1L, ]
@@ -97,9 +97,9 @@ test_that("stabilizeYost shrunk values lie between original and parent", {
   }
 })
 
-test_that("stabilizeYost preserves original values when shrinkage is not applied", {
+test_that("stabilizeYostIndex preserves original values when shrinkage is not applied", {
   d <- make_stabilize_data()
-  result <- ReproduceYostIndex:::stabilizeYost(d$child, d$parent, varlist, geo_parent_key_len = 5)
+  result <- ReproduceYostIndex:::stabilizeYostIndex(d$child, d$parent, varlist, geo_parent_key_len = 5)
 
   for (var in varlist) {
     no_shrink_rows <- result[result[[paste0("stabilizedflg_", var)]] == 0L, ]
@@ -113,9 +113,9 @@ test_that("stabilizeYost preserves original values when shrinkage is not applied
   }
 })
 
-test_that("stabilizeYost correctly links child units to parent via GEOID truncation", {
+test_that("stabilizeYostIndex correctly links child units to parent via GEOID truncation", {
   d <- make_stabilize_data()
-  result <- ReproduceYostIndex:::stabilizeYost(d$child, d$parent, varlist, geo_parent_key_len = 5)
+  result <- ReproduceYostIndex:::stabilizeYostIndex(d$child, d$parent, varlist, geo_parent_key_len = 5)
 
   # Every child GEOID should have a matching parent value
   for (var in varlist) {

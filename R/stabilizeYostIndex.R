@@ -47,7 +47,7 @@
 #'
 #' @examples
 #' \dontrun{
-#' stabilized_data <- stabilizeYost(
+#' stabilized_data <- stabilizeYostIndex(
 #'   yost_data = bg_data,
 #'   yost_data_parent = tract_data,
 #'   varlist = c("income", "education", "employment"),
@@ -60,7 +60,7 @@
 #'
 #' @export
 
-stabilizeYost <- function(yost_data, yost_data_parent, varlist, geo_parent_key_len) {
+stabilizeYostIndex <- function(yost_data, yost_data_parent, varlist, geo_parent_key_len) {
 
   # --- Joint dataset (lower + upper)
   yost_data_full <- yost_data |>
