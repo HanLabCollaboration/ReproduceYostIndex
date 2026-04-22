@@ -104,287 +104,206 @@
 #'   )
 #' }
 
-computeYostIndex <- function(
-    geo = "tract",
-    year = 2022,
-    nfactors = 1,
-    states = 'CA',
-    stabilize = FALSE,
-    impute = TRUE,
-    rescale = 'rank',
-    quiet = FALSE,
-    return_format = 'detailed',
-    scope = "state",
-    keep_geometry = TRUE,
-    weight_var = 'tot_pop',
-    ...){
+geo <- rlang::arg_match(geo, values = c("state", "county", 
+                                        "tract", "block group", "cbg"))
+rescale <- rlang::arg_match(rescale, values = c("rank", "standardize"))
+return_format <- rlang::arg_match(return_format, values = c("minimal", 
+                                                            "detailed"))
+scope <- rlang::arg_match(scope, values = c("national", "state", "county"))
+weight_var <- rlang::arg_match(weight_var, values = c("tot_pop", "none"))
+stopifnot(is.numeric(nfactors), nfactors == 1)
+if (!is.numeric(year) || year < 2011) {
+  stop(glue::glue("'year' must be a number >= 2011. Got: {year}"))
+}
 
-  # --- 1. Argument Checks ---
-  geo           <- rlang::arg_match(geo, values = c("state", "county", "tract", "block group", "cbg"))
-  rescale       <- rlang::arg_match(rescale, values = c("rank", "standardize"))
-  return_format <- rlang::arg_match(return_format, values = c("minimal", "detailed"))
-  scope         <- rlang::arg_match(scope, values = c("national", "state", "county"))
-  weight_var    <- rlang::arg_match(weight_var, values = c("tot_pop", "none"))
-  stopifnot(is.numeric(nfactors), nfactors == 1)
-  stopifnot(is.numeric(year), year >= 2011)
-
-  if (scope == "county" && !geo %in% c("tract", "block group", "cbg")) {
-    stop("scope = 'county' can only be used with geo = 'tract', 'block group', or 'cbg'")
-  }
-  if (scope == "state" && !geo %in% c("county", "tract", "block group", "cbg")) {
-    stop("scope = 'state' can only be used with geo = 'county', 'tract', 'block group', or 'cbg'")
-  }
-  if (scope == "national") {
-    message(glue::glue("Since the scope == 'national', it will pull all states"))
-    states <- 'all'
-  }
-  if (year <= 2012) {
-    message(glue::glue('For years 2011 and 2012, data is only available for county, tract, and state level'))
-    stopifnot(geo %in% c('county', 'tract'))
-  }
-
-  get_geometry <- impute || keep_geometry
-
-  if (states[1] == 'all') {
-    all_geos   <- unique(tidycensus::fips_codes$state)
-    non_states <- c("DC", "PR", "AS", "GU", "MP", "VI", "UM")
-    states     <- setdiff(all_geos, non_states)
-  } else {
-    all_geos       <- unique(tidycensus::fips_codes$state)
-    non_states     <- c("DC", "PR", "AS", "GU", "MP", "VI", "UM")
-    valid_states   <- setdiff(all_geos, non_states)
-    invalid_states <- setdiff(states, valid_states)
-    if (length(invalid_states) > 0) {
-      invalid_states_str <- glue::glue_collapse(invalid_states, sep = ", ")
-      stop(glue::glue("Invalid state abbreviations provided: {invalid_states_str}.
-                      Please use standard 2-letter postal codes for the 50 US states."))
-    }
-  }
-
-  # --- 2. Data Fetching ---
-  if (!quiet) message("Fetching raw ACS data...")
-  yost_data_raw <- fetchYostAcs(geo, year, states, get_geometry)
-  acs_vars <- attr(yost_data_raw, "acs_vars")
-  varlist  <- c("income", "wkcls", "unemp", "educ", "poverty150", "rent", "hval")
-
-  yost_data_clean <- cleanAcsNames(dframe = yost_data_raw, geo = geo)
-
-  if (!quiet) message("Calculating Yost component variables...")
-
-  # Requested data (with stabilization if asked)
-  yost_data <- yost_data_clean |>
-    calculateYostVars(acs_vars = acs_vars, stabilize_sub = stabilize) |>
-    dplyr::select(
-      GEOID, NAME, dplyr::any_of(c("block_group", "tract", "county", "state")),
-      tot_pop, income, wkcls, unemp, educ, poverty150, rent, hval,
-      dplyr::any_of(paste0(varlist, "_moe")),
-      dplyr::any_of("geometry")
-    )
-
-  # --- 3. Determine output column names based on requested settings ---
-  yost_col          <- dplyr::case_when(
-    stabilize && impute ~ "YostStabilizedImputed",
-    stabilize           ~ "YostStabilized",
-    impute              ~ "YostImputed",
-    TRUE                ~ "Yost"
-  )
-  yost_quintile_col <- paste0(yost_col, "Quintile")
-
-  # --- 4. Run REQUESTED pipeline (stabilize/impute as asked) ---
-  if (!quiet) message(switch(scope,
-    "state"    = "Scope is 'state'. Processing each state separately",
-    "county"   = "Scope is 'county'. Processing each county separately",
-    "national" = "Scope is 'national'. Imputing, harmonizing and computing factor for all geoIDs."
+if (scope == "county" && !geo %in% c("tract", "block group","cbg")) {
+  stop("scope = 'county' can only be used with geo = 'tract', 'block group', or 'cbg'")
+}
+if (scope == "state" && !geo %in% c("county", "tract", "block group", 
+                                    "cbg")) {
+  stop("scope = 'state' can only be used with geo = 'county', 'tract', 'block group', or 'cbg'")
+}
+if (scope == "national") {
+  message(glue::glue("Since the scope == 'national', it will pull all states"))
+  states <- "all"
+}
+# block group requires year >= 2013
+if (geo == "block group" && year < 2013) {
+  stop(glue::glue(
+    "geo = 'block group' requires year >= 2013. Got year = {year}."
   ))
+}
+# years 2011-2012 only support state, county, tract
+if (year <= 2012 && !geo %in% c("state", "county", "tract")) {
+  stop(glue::glue(
+    "For years 2011-2012, only 'state', 'county', and 'tract' are available. ",
+    "Got geo = '{geo}' for year = {year}."
+  ))
+}
 
+get_geometry <- impute || keep_geometry
+if (states[1] == "all") {
+  all_geos <- unique(tidycensus::fips_codes$state)
+  non_states <- c("DC", "PR", "AS", "GU", "MP", "VI", "UM")
+  states <- setdiff(all_geos, non_states)
+}
+else {
+  all_geos <- unique(tidycensus::fips_codes$state)
+  non_states <- c("DC", "PR", "AS", "GU", "MP", "VI", "UM")
+  valid_states <- setdiff(all_geos, non_states)
+  invalid_states <- setdiff(states, valid_states)
+  if (length(invalid_states) > 0) {
+    invalid_states_str <- glue::glue_collapse(invalid_states, 
+                                              sep = ", ")
+    stop(glue::glue("Invalid state abbreviations provided: {invalid_states_str}.\n Please use standard 2-letter postal codes for the 50 US states."))
+  }
+}
+if (!quiet) 
+  message("Fetching raw ACS data...")
+yost_data_raw <- fetchYostAcs(geo, year, states, get_geometry)
+acs_vars <- attr(yost_data_raw, "acs_vars")
+varlist <- c("income", "wkcls", "unemp", "educ", "poverty150", 
+             "rent", "hval")
+yost_data_clean <- cleanAcsNames(dframe = yost_data_raw, 
+                                 geo = geo)
+if (!quiet) 
+  message("Calculating Yost component variables...")
+yost_data <- dplyr::select(
+  calculateYostVars(yost_data_clean, 
+                    acs_vars = acs_vars, stabilize_sub = stabilize), GEOID, 
+  NAME, dplyr::any_of(c("block_group", "tract", "county", 
+                        "state")), tot_pop, income, wkcls, unemp, educ, poverty150, 
+  rent, hval, dplyr::any_of(paste0(varlist, "_moe")), dplyr::any_of("geometry"))
+yost_col <- dplyr::case_when(stabilize && impute ~ "YostStabilizedImputed", 
+                             stabilize ~ "YostStabilized", impute ~ "YostImputed", 
+                             TRUE ~ "Yost")
+yost_quintile_col <- paste0(yost_col, "Quintile")
+if (!quiet) 
+  message(switch(scope, state = "Scope is 'state'. Processing each state separately", 
+                 county = "Scope is 'county'. Processing each county separately", 
+                 national = "Scope is 'national'. Imputing, harmonizing and computing factor for all geoIDs."))
+if (scope == "state") {
+  list_of_state_data <- dplyr::group_split(yost_data, state)
+  results_list <- purrr::map(list_of_state_data, ~processYostScope(
+    yost_data_sub = .x, 
+    stabilize_sub = stabilize, geo = geo, year = year, 
+    states = states, acs_vars = acs_vars, varlist = varlist, 
+    impute_sub = impute, rescale_sub = rescale, nfactors_sub = nfactors, 
+    quiet_sub = quiet, return_format_sub = return_format, 
+    weight_var_sub = weight_var))
+  
+  results_list <- purrr::keep(results_list, ~!is.null(.x))
+  df_yost <- purrr::map_dfr(results_list, "df_yost")
+  df_raw_values <- purrr::map_dfr(results_list, "df_raw_values")
+  df_geometry <- purrr::map_dfr(results_list, "df_geometry")
+  df_imputed <- purrr::map_dfr(results_list, "df_imputed")
+  df_rank <- purrr::map_dfr(results_list, "df_rank")
+  list_of_fa_objects <- purrr::map(results_list, "fa_object")
+  names(list_of_fa_objects) <- purrr::map_chr(results_list, 
+                                              ~unique(.x$df_raw_values$state))
+  out_obj_factor <- list_of_fa_objects
+}
+else if (scope == "county") {
+  yost_data <- dplyr::mutate(yost_data, county_state = paste(county, 
+                                                             state, sep = ", "))
+  list_of_county_data <- dplyr::group_split(yost_data, 
+                                            county_state)
+  results_list <- purrr::map(list_of_county_data, ~processYostScope(
+    yost_data_sub = .x, 
+    stabilize_sub = stabilize, geo = geo, year = year, 
+    states = states, acs_vars = acs_vars, varlist = varlist, 
+    impute_sub = impute, rescale_sub = rescale, nfactors_sub = nfactors, 
+    quiet_sub = quiet, return_format_sub = return_format, 
+    weight_var_sub = weight_var))
+  
+  results_list <- purrr::keep(results_list, ~!is.null(.x))
+  df_yost <- purrr::map_dfr(results_list, "df_yost")
+  df_raw_values <- purrr::map_dfr(results_list, "df_raw_values")
+  df_geometry <- purrr::map_dfr(results_list, "df_geometry")
+  df_imputed <- purrr::map_dfr(results_list, "df_imputed")
+  df_rank <- purrr::map_dfr(results_list, "df_rank")
+  list_of_fa_objects <- purrr::map(results_list, "fa_object")
+  names(list_of_fa_objects) <- purrr::map_chr(results_list, 
+                                              ~unique(.x$df_raw_values$county_state))
+  out_obj_factor <- list_of_fa_objects
+}
+else {
+  single_result <- processYostScope(
+    yost_data_sub = yost_data, 
+    stabilize_sub = stabilize, geo = geo, year = year, 
+    states = states, acs_vars = acs_vars, varlist = varlist, 
+    impute_sub = impute, rescale_sub = rescale, nfactors_sub = nfactors, 
+    quiet_sub = quiet, return_format_sub = return_format, 
+    weight_var_sub = weight_var)
+  
+  df_yost <- single_result$df_yost
+  df_raw_values <- single_result$df_raw_values
+  df_geometry <- single_result$df_geometry
+  df_imputed <- single_result$df_imputed
+  df_rank <- single_result$df_rank
+  out_obj_factor <- single_result$fa_object
+}
+df_yost <- dplyr::rename(df_yost, `:=`(!!yost_col, Yost), 
+                         `:=`(!!yost_quintile_col, YostQuintile))
+if (stabilize || impute) {
+  if (!quiet) 
+    message("Computing baseline Yost (no stabilization, no imputation) for df_yost_raw...")
+  yost_data_baseline <- dplyr::select(calculateYostVars(
+    yost_data_clean, 
+    acs_vars = acs_vars, stabilize_sub = FALSE), GEOID, 
+    NAME, dplyr::any_of(c("block_group", "tract", "county", 
+                          "state")), tot_pop, income, wkcls, unemp, educ, 
+    poverty150, rent, hval, dplyr::any_of("geometry"))
   if (scope == "state") {
-
-    list_of_state_data <- dplyr::group_split(yost_data, state)
-    results_list <- purrr::map(
-      list_of_state_data, ~processYostScope(
-        yost_data_sub     = .x,
-        stabilize_sub     = stabilize,
-        geo               = geo,
-        year              = year,
-        states            = states,
-        acs_vars          = acs_vars,
-        varlist           = varlist,
-        impute_sub        = impute,
-        rescale_sub       = rescale,
-        nfactors_sub      = nfactors,
-        quiet_sub         = quiet,
-        return_format_sub = return_format,
-        weight_var_sub    = weight_var
-      ))
-    results_list  <- purrr::keep(results_list, ~!is.null(.x))
-    df_yost       <- purrr::map_dfr(results_list, "df_yost")
-    df_raw_values <- purrr::map_dfr(results_list, "df_raw_values")
-    df_geometry   <- purrr::map_dfr(results_list, "df_geometry")
-    df_imputed    <- purrr::map_dfr(results_list, "df_imputed")
-    df_rank       <- purrr::map_dfr(results_list, "df_rank")
-    list_of_fa_objects <- purrr::map(results_list, "fa_object")
-    names(list_of_fa_objects) <- purrr::map_chr(results_list, ~unique(.x$df_raw_values$state))
-    out_obj_factor <- list_of_fa_objects
-
-  } else if (scope == "county") {
-
-    yost_data <- yost_data |>
-      dplyr::mutate(county_state = paste(county, state, sep = ", "))
-    list_of_county_data <- dplyr::group_split(yost_data, county_state)
-    results_list <- purrr::map(
-      list_of_county_data, ~processYostScope(
-        yost_data_sub     = .x,
-        stabilize_sub     = stabilize,
-        geo               = geo,
-        year              = year,
-        states            = states,
-        acs_vars          = acs_vars,
-        varlist           = varlist,
-        impute_sub        = impute,
-        rescale_sub       = rescale,
-        nfactors_sub      = nfactors,
-        quiet_sub         = quiet,
-        return_format_sub = return_format,
-        weight_var_sub    = weight_var
-      ))
-    results_list  <- purrr::keep(results_list, ~!is.null(.x))
-    df_yost       <- purrr::map_dfr(results_list, "df_yost")
-    df_raw_values <- purrr::map_dfr(results_list, "df_raw_values")
-    df_geometry   <- purrr::map_dfr(results_list, "df_geometry")
-    df_imputed    <- purrr::map_dfr(results_list, "df_imputed")
-    df_rank       <- purrr::map_dfr(results_list, "df_rank")
-    list_of_fa_objects <- purrr::map(results_list, "fa_object")
-    names(list_of_fa_objects) <- purrr::map_chr(results_list, ~unique(.x$df_raw_values$county_state))
-    out_obj_factor <- list_of_fa_objects
-
-  } else {
-
-    single_result <- processYostScope(
-      yost_data_sub     = yost_data,
-      stabilize_sub     = stabilize,
-      geo               = geo,
-      year              = year,
-      states            = states,
-      acs_vars          = acs_vars,
-      varlist           = varlist,
-      impute_sub        = impute,
-      rescale_sub       = rescale,
-      nfactors_sub      = nfactors,
-      quiet_sub         = quiet,
-      return_format_sub = return_format,
-      weight_var_sub    = weight_var
-    )
-    df_yost        <- single_result$df_yost
-    df_raw_values  <- single_result$df_raw_values
-    df_geometry    <- single_result$df_geometry
-    df_imputed     <- single_result$df_imputed
-    df_rank        <- single_result$df_rank
-    out_obj_factor <- single_result$fa_object
-
+    list_of_state_data <- dplyr::group_split(yost_data_baseline, 
+                                             state)
+    results_list_raw <- purrr::map(
+      list_of_state_data, 
+      ~processYostScope(yost_data_sub = .x, stabilize_sub = FALSE, 
+                        geo = geo, year = year, states = states, acs_vars = acs_vars, 
+                        varlist = varlist, impute_sub = FALSE, rescale_sub = rescale, 
+                        nfactors_sub = nfactors, quiet_sub = TRUE, 
+                        return_format_sub = return_format, weight_var_sub = weight_var))
+    results_list_raw <- purrr::keep(results_list_raw, 
+                                    ~!is.null(.x))
+    df_yost_raw <- purrr::map_dfr(results_list_raw, "df_yost")
   }
-
-  # Rename Yost columns to reflect what was applied
-  df_yost <- df_yost |>
-    dplyr::rename(!!yost_col := Yost, !!yost_quintile_col := YostQuintile)
-
-  # --- 5. Run BASELINE pipeline (no stabilization, no imputation) when adjustments were requested ---
-  if (stabilize || impute) {
-    if (!quiet) message("Computing baseline Yost (no stabilization, no imputation) for df_yost_raw...")
-
-    yost_data_baseline <- yost_data_clean |>
-      calculateYostVars(acs_vars = acs_vars, stabilize_sub = FALSE) |>
-      dplyr::select(
-        GEOID, NAME, dplyr::any_of(c("block_group", "tract", "county", "state")),
-        tot_pop, income, wkcls, unemp, educ, poverty150, rent, hval,
-        dplyr::any_of("geometry")
-      )
-
-    if (scope == "state") {
-
-      list_of_state_data <- dplyr::group_split(yost_data_baseline, state)
-      results_list_raw <- purrr::map(
-        list_of_state_data, ~processYostScope(
-          yost_data_sub     = .x,
-          stabilize_sub     = FALSE,
-          geo               = geo,
-          year              = year,
-          states            = states,
-          acs_vars          = acs_vars,
-          varlist           = varlist,
-          impute_sub        = FALSE,
-          rescale_sub       = rescale,
-          nfactors_sub      = nfactors,
-          quiet_sub         = TRUE,
-          return_format_sub = return_format,
-          weight_var_sub    = weight_var
-        ))
-      results_list_raw <- purrr::keep(results_list_raw, ~!is.null(.x))
-      df_yost_raw <- purrr::map_dfr(results_list_raw, "df_yost")
-
-    } else if (scope == "county") {
-
-      yost_data_baseline <- yost_data_baseline |>
-        dplyr::mutate(county_state = paste(county, state, sep = ", "))
-      list_of_county_data <- dplyr::group_split(yost_data_baseline, county_state)
-      results_list_raw <- purrr::map(
-        list_of_county_data, ~processYostScope(
-          yost_data_sub     = .x,
-          stabilize_sub     = FALSE,
-          geo               = geo,
-          year              = year,
-          states            = states,
-          acs_vars          = acs_vars,
-          varlist           = varlist,
-          impute_sub        = FALSE,
-          rescale_sub       = rescale,
-          nfactors_sub      = nfactors,
-          quiet_sub         = TRUE,
-          return_format_sub = return_format,
-          weight_var_sub    = weight_var
-        ))
-      results_list_raw <- purrr::keep(results_list_raw, ~!is.null(.x))
-      df_yost_raw <- purrr::map_dfr(results_list_raw, "df_yost")
-
-    } else {
-
-      baseline_result <- processYostScope(
-        yost_data_sub     = yost_data_baseline,
-        stabilize_sub     = FALSE,
-        geo               = geo,
-        year              = year,
-        states            = states,
-        acs_vars          = acs_vars,
-        varlist           = varlist,
-        impute_sub        = FALSE,
-        rescale_sub       = rescale,
-        nfactors_sub      = nfactors,
-        quiet_sub         = TRUE,
-        return_format_sub = return_format,
-        weight_var_sub    = weight_var
-      )
-      df_yost_raw <- baseline_result$df_yost
-
-    }
-
-  } else {
-    # No adjustments requested: raw and requested are the same
-    df_yost_raw <- df_yost
+  else if (scope == "county") {
+    yost_data_baseline <- dplyr::mutate(yost_data_baseline, 
+                                        county_state = paste(county, state, sep = ", "))
+    list_of_county_data <- dplyr::group_split(yost_data_baseline, 
+                                              county_state)
+    results_list_raw <- purrr::map(
+      list_of_county_data, 
+      ~processYostScope(yost_data_sub = .x, stabilize_sub = FALSE, 
+                        geo = geo, year = year, states = states, acs_vars = acs_vars, 
+                        varlist = varlist, impute_sub = FALSE, rescale_sub = rescale, 
+                        nfactors_sub = nfactors, quiet_sub = TRUE, 
+                        return_format_sub = return_format, weight_var_sub = weight_var))
+    results_list_raw <- purrr::keep(results_list_raw, 
+                                    ~!is.null(.x))
+    df_yost_raw <- purrr::map_dfr(results_list_raw, "df_yost")
   }
-
-  # --- 6. Final Output ---
-  if (return_format == 'minimal') {
-    return(df_yost |> dplyr::arrange(GEOID))
+  else {
+    baseline_result <- processYostScope(
+      yost_data_sub = yost_data_baseline, 
+      stabilize_sub = FALSE, geo = geo, year = year, 
+      states = states, acs_vars = acs_vars, varlist = varlist, 
+      impute_sub = FALSE, rescale_sub = rescale, nfactors_sub = nfactors, 
+      quiet_sub = TRUE, return_format_sub = return_format, 
+      weight_var_sub = weight_var)
+    df_yost_raw <- baseline_result$df_yost
   }
-
-  out <- list(
-    df_yost_raw   = df_yost_raw   |> dplyr::arrange(GEOID),
-    df_yost       = df_yost       |> dplyr::arrange(GEOID),
-    df_raw_values = df_raw_values,
-    df_geometry   = df_geometry,
-    df_imputed    = df_imputed,
-    df_rank       = df_rank,
-    obj_factor    = out_obj_factor
-  )
-
-  return(out)
+}
+else {
+  df_yost_raw <- df_yost
+}
+if (return_format == "minimal") {
+  return(dplyr::arrange(df_yost, GEOID))
+}
+out <- list(df_yost_raw = dplyr::arrange(df_yost_raw, GEOID), 
+            df_yost = dplyr::arrange(df_yost, GEOID), df_raw_values = df_raw_values, 
+            df_geometry = df_geometry, df_imputed = df_imputed, df_rank = df_rank, 
+            obj_factor = out_obj_factor)
+return(out)
 }
