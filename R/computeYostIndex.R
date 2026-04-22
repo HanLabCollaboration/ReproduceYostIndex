@@ -104,7 +104,23 @@
 #'   )
 #' }
 
-geo <- rlang::arg_match(geo, values = c("state", "county", 
+computeYostIndex <- function(
+    geo           = "tract",
+    year          = 2022,
+    states        = "all",
+    nfactors      = 1,
+    stabilize     = FALSE,
+    impute        = FALSE,
+    rescale       = "rank",
+    scope         = "national",
+    keep_geometry = TRUE,
+    quiet         = FALSE,
+    return_format = "detailed",
+    weight_var    = "tot_pop",
+    ...
+) {
+
+geo <- rlang::arg_match(geo, values = c("state", "county",
                                         "tract", "block group", "cbg"))
 rescale <- rlang::arg_match(rescale, values = c("rank", "standardize"))
 return_format <- rlang::arg_match(return_format, values = c("minimal", 
