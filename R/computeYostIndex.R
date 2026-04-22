@@ -116,12 +116,17 @@ if (!is.numeric(year) || year < 2011) {
   stop(glue::glue("'year' must be a number >= 2011. Got: {year}"))
 }
 
-if (scope == "county" && !geo %in% c("tract", "block group","cbg")) {
+if (scope == "county" && !geo %in% c("tract", "block group", "cbg")) {
   stop("scope = 'county' can only be used with geo = 'tract', 'block group', or 'cbg'")
 }
-if (scope == "state" && !geo %in% c("county", "tract", "block group", 
-                                    "cbg")) {
+if (scope == "state" && !geo %in% c("county", "tract", "block group", "cbg")) {
   stop("scope = 'state' can only be used with geo = 'county', 'tract', 'block group', or 'cbg'")
+}
+if (geo == "state" && scope != "national") {
+  stop(glue::glue(
+    "geo = 'state' only supports scope = 'national'. ",
+    "Got scope = '{scope}'."
+  ))
 }
 if (scope == "national") {
   message(glue::glue("Since the scope == 'national', it will pull all states"))
