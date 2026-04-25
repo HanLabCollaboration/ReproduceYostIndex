@@ -198,8 +198,8 @@ getYostIndex <- function(
 
   if (geometry) {
     download_asset(gpkg_url, gpkg_path, gpkg_file)
-    geom_sf <- sf::st_read(gpkg_path, layer = scope, quiet = TRUE) |>
-      dplyr::select(GEOID, geometry)
+    geom_sf <- sf::st_read(gpkg_path, layer = "geometry", quiet = TRUE) |>
+      dplyr::select(GEOID)
 
     # Filter geometry to match any state subset applied above
     if (!is.null(states)) {
