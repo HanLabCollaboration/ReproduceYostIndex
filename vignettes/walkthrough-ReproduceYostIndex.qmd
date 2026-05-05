@@ -301,7 +301,7 @@ yost_la <- computeYostIndex(
 knitr::kable(data.frame(
   Question = c(
     "Do I have a Census API key?",
-    "Do I need data for 2024 or later?",
+    "Do I need data for 2025 or later?",
     "Do I need county-level scope?",
     "Do I need intermediate outputs (raw ACS, factor loadings)?",
     "Am I doing a quick analysis or teaching?"

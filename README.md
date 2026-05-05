@@ -48,7 +48,7 @@ Downloads pre-computed Yost Index values directly from GitHub. No Census API key
 | Dimension | Coverage |
 |---|---|
 | **Geographies** | County, tract, census block group |
-| **Years** | 2013–2023 (county and tract from 2011) |
+| **Years** | 2013–2024 (county and tract from 2011) |
 | **Scopes** | National, state |
 | **Variants** | `Yost`, `YostStabilized`, `YostImputed`, `YostStabilizedImputed` (+ quintiles for each) |
 

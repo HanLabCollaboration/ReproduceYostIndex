@@ -109,9 +109,11 @@ Each pre-computed file was produced using the following pipeline:
 
 | Geography | Scope | Years |
 |---|---|---|
-| County | National, State | 2011–2023 |
-| Tract | National, State | 2011–2023 |
-| Block group | National, State | 2013–2023 |
+| County | National, State | 2011–2024 |
+| Tract | National, State | 2011–2024 |
+| Block group | National, State | 2013–2024 |
+
+> **Coverage note:** Pre-computed files currently cover ACS 5-year estimates through **2024**. Data for 2025 will be added once the US Census Bureau releases the 2025 ACS 5-year estimates (typically December of the following year).
 
 Two file types are available per combination:
 
@@ -125,7 +127,7 @@ Files are cached locally after the first download so subsequent calls with the s
 ```r
 getYostIndex(
   geo      = "tract",        # "county", "tract", "block group" (or "cbg"), "state"
-  year     = 2022,           # ACS 5-year estimate year (2011–2023; block group: 2013–2023)
+  year     = 2022,           # ACS 5-year estimate year (2011–2024; block group: 2013–2024)
   states   = NULL,           # character vector of state abbreviations, e.g. c("CA", "NY")
   scope    = "national",     # "national" or "state"
   geometry = FALSE,          # TRUE returns an sf object with Census boundaries attached

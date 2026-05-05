@@ -16,6 +16,10 @@
 #' Files are cached locally after the first download so subsequent calls with
 #' the same arguments are instantaneous.
 #'
+#' Coverage is updated annually. Data for 2025 will be added once the US
+#' Census Bureau releases the 2025 ACS 5-year estimates (typically December
+#' of the following year). Use \code{\link{computeYostIndex}} in the interim.
+#'
 #' @param geo Geography level. One of \code{"county"}, \code{"tract"},
 #'   \code{"block group"} (or its alias \code{"cbg"}).
 #' @param year ACS 5-year estimate year (2013–2024).

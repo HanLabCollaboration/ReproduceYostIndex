@@ -7,15 +7,15 @@
 computeYostIndex(
   geo = "tract",
   year = 2022,
+  states = "all",
   nfactors = 1,
-  states = "CA",
   stabilize = FALSE,
-  impute = TRUE,
+  impute = FALSE,
   rescale = "rank",
+  scope = "national",
+  keep_geometry = TRUE,
   quiet = FALSE,
   return_format = "detailed",
-  scope = "state",
-  keep_geometry = TRUE,
   weight_var = "tot_pop",
   ...
 )
@@ -27,11 +27,11 @@ computeYostIndex(
 \item{year}{The 5-year ACS survey year (e.g., 2022). Must be >= 2011, and
 must be >= 2013 for census block group}
 
-\item{nfactors}{The number of factors to extract in the factor analysis.
-Defaults to 1.}
-
 \item{states}{A vector of state abbreviations (e.g., `c("CA", "NY")`) or
 `'all'` to run for the entire US.}
+
+\item{nfactors}{The number of factors to extract in the factor analysis.
+Defaults to 1.}
 
 \item{stabilize}{Logical. If `TRUE`, applies an empirical Bayes stabilization
 estimator to the 7 component variables before factor analysis. Each
@@ -46,12 +46,6 @@ for missing data using 'queen' contiguity.}
 \item{rescale}{Method for rescaling the 7 component variables before the
 factor analysis. Must be `"rank"` (default) or `"standardize"`.}
 
-\item{quiet}{Logical. If `TRUE`, suppresses all messages and warnings.}
-
-\item{return_format}{Return `"detailed"` (default) or `"minimal"`.
-`"minimal"` returns only `GEOID`, the requested Yost column, its quintile,
-and `annotation`.}
-
 \item{scope}{Calculate the index using a `"national"` (default), `"state"`, or
 `"county"` scope. `"national"` ranks all geographies against each other
 (automatically sets `states = 'all'`). `"state"` ranks geographies within
@@ -62,6 +56,12 @@ each state separately (only valid for `geo = "county"`, `"tract"`, or
 \item{keep_geometry}{Logical. If `TRUE` (default), attaches geometry to
 `df_geometry` in the returned list. Geometry is always fetched when
 `impute = TRUE`.}
+
+\item{quiet}{Logical. If `TRUE`, suppresses all messages and warnings.}
+
+\item{return_format}{Return `"detailed"` (default) or `"minimal"`.
+`"minimal"` returns only `GEOID`, the requested Yost column, its quintile,
+and `annotation`.}
 
 \item{weight_var}{The variable to use for weighted spatial imputation.
 Must be `"tot_pop"` (default) or `"none"`. Passed to `imputeMissing()` as

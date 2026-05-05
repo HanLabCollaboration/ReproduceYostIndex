@@ -18,7 +18,7 @@ getYostIndex(
 \item{geo}{Geography level. One of \code{"county"}, \code{"tract"},
 \code{"block group"} (or its alias \code{"cbg"}).}
 
-\item{year}{ACS 5-year estimate year (2013–2023).}
+\item{year}{ACS 5-year estimate year (2013–2024).}
 
 \item{states}{Optional character vector of state abbreviations
 (e.g. \code{c("CA", "NY")}) to subset the results. \code{NULL} (default)
@@ -57,7 +57,7 @@ retrieves pre-computed Yost Index values directly from the
 GitHub repository.
 
 Pre-computed files cover \strong{county}, \strong{tract}, and
-\strong{block group} geographies for ACS years 2011–2023 (block groups
+\strong{block group} geographies for ACS years 2011–2024 (block groups
 from 2013 onwards), under \strong{national} and \strong{state} scopes, for
 all four shrink/impute configurations. Note: \code{scope = "county"} is
 not available in the pre-computed files; use \code{\link{computeYostIndex}}
@@ -65,6 +65,10 @@ instead.
 
 Files are cached locally after the first download so subsequent calls with
 the same arguments are instantaneous.
+
+Coverage is updated annually. Data for 2025 will be added once the US
+Census Bureau releases the 2025 ACS 5-year estimates (typically December
+of the following year). Use \code{\link{computeYostIndex}} in the interim.
 }
 \examples{
 \dontrun{
